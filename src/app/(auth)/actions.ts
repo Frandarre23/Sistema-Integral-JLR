@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { createClient } from '@/lib/supabase/server';
 
 const loginSchema = z.object({
@@ -28,10 +29,10 @@ export async function loginAction(
     };
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+  if (!isSupabaseConfigured()) {
     return {
-      error: 'Supabase no está configurado aún. Agregá tus credenciales en el archivo .env.local para iniciar sesión.',
+      error:
+        'Supabase no está configurado aún. Agregá tus credenciales (URL y clave pública) en el archivo .env.local para iniciar sesión.',
     };
   }
 
@@ -51,8 +52,9 @@ export async function loginAction(
 }
 
 export async function logoutAction(): Promise<void> {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  }
   redirect('/login');
 }
-

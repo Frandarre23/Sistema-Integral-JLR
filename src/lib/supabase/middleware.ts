@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import type { Database } from '@/types/database.types';
 
 type CookieToSet = {
@@ -17,14 +18,12 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
 
-  // Si no hay variables de entorno configuradas todavía, bloquear /admin y permitir rutas públicas
-  if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
+  // Si las variables de entorno de Supabase no están configuradas válidamente,
+  // operar en modo fail-closed: bloquear /admin y permitir únicamente rutas públicas.
+  if (!isSupabaseConfigured()) {
     if (isAdminRoute) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
@@ -33,6 +32,9 @@ export async function updateSession(request: NextRequest) {
     }
     return supabaseResponse;
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient<Database>(
     supabaseUrl,
@@ -60,15 +62,15 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protección de rutas administrativas: si no hay usuario, redirigir al login
+  // Protección de rutas administrativas: si no hay usuario autenticado, redirigir al login
   if (isAdminRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectedFrom', request.nextUrl.pathname);
     const redirectResponse = NextResponse.redirect(url);
-    // Sincronizar cookies actualizadas
+    // Sincronizar cookies actualizadas conservando todos sus atributos (httpOnly, secure, sameSite, path, maxAge)
     supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
+      redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
   }
@@ -79,7 +81,7 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/admin';
     const redirectResponse = NextResponse.redirect(url);
     supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
+      redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
   }

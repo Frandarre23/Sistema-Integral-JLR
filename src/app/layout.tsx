@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { BUSINESS_CONFIG } from '@/lib/constants';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: `${BUSINESS_CONFIG.name} | Gomería y Mecánica Rápida`,
@@ -28,10 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="h-full">
-      <body className={`${inter.className} min-h-screen flex flex-col antialiased`}>
+      <body className="min-h-screen flex flex-col antialiased font-sans">
         {children}
       </body>
     </html>
   );
 }
-
